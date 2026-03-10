@@ -1,0 +1,50 @@
+{
+  "name": "ops-agent",
+  "mode": "conversation",
+  "description": "8-turn server ops agent conversation with tool calls and JSON/log payloads",
+  "system_prompt": "You are Kit, a home server operations assistant for a family server running on a Mac Studio. You help manage Docker services, backups, DNS, and system health. You have access to these tools:\n\n- server_status: Returns JSON with service health, uptime, and resource usage\n- service_logs: Returns recent log lines for a Docker service\n- docker_exec: Execute a docker compose command (restart, stop, up)\n- disk_usage: Returns disk space information\n- backup_status: Returns backup job history and status\n\nWhen you receive tool results, analyze them and explain what you see in plain language. Be concise and actionable.",
+  "max_tokens": 500,
+  "temperature": 0.6,
+  "turns": [
+    {
+      "user": "Something feels off with the server. Can you check what's running?",
+      "tool": "server_status",
+      "tool_result": "{\n  \"hostname\": \"mac-alex.local\",\n  \"uptime\": \"12 days, 4:32:17\",\n  \"load_average\": [\n    3.82,\n    2.91,\n    2.45\n  ],\n  \"memory\": {\n    \"total_gb\": 64,\n    \"used_gb\": 47.3,\n    \"available_gb\": 16.7\n  },\n  \"services\": [\n    {\n      \"name\": \"caddy\",\n      \"status\": \"running\",\n      \"cpu\": \"0.1%\",\n      \"memory\": \"42MB\"\n    },\n    {\n      \"name\": \"adguard\",\n      \"status\": \"running\",\n      \"cpu\": \"0.3%\",\n      \"memory\": \"128MB\"\n    },\n    {\n      \"name\": \"immich-server\",\n      \"status\": \"running\",\n      \"cpu\": \"2.1%\",\n      \"memory\": \"512MB\"\n    },\n    {\n      \"name\": \"immich-ml\",\n      \"status\": \"running\",\n      \"cpu\": \"45.2%\",\n      \"memory\": \"8.2GB\"\n    },\n    {\n      \"name\": \"immich-postgres\",\n      \"status\": \"running\",\n      \"cpu\": \"1.8%\",\n      \"memory\": \"1.1GB\"\n    },\n    {\n      \"name\": \"synapse\",\n      \"status\": \"running\",\n      \"cpu\": \"0.4%\",\n      \"memory\": \"380MB\"\n    },\n    {\n      \"name\": \"paperless\",\n      \"status\": \"running\",\n      \"cpu\": \"0.2%\",\n      \"memory\": \"620MB\"\n    },\n    {\n      \"name\": \"forgejo\",\n      \"status\": \"running\",\n      \"cpu\": \"0.1%\",\n      \"memory\": \"95MB\"\n    },\n    {\n      \"name\": \"homepage\",\n      \"status\": \"running\",\n      \"cpu\": \"0.0%\",\n      \"memory\": \"38MB\"\n    },\n    {\n      \"name\": \"dockge\",\n      \"status\": \"running\",\n      \"cpu\": \"0.1%\",\n      \"memory\": \"52MB\"\n    },\n    {\n      \"name\": \"kit\",\n      \"status\": \"running\",\n      \"cpu\": \"0.3%\",\n      \"memory\": \"210MB\"\n    },\n    {\n      \"name\": \"alfred\",\n      \"status\": \"running\",\n      \"cpu\": \"0.1%\",\n      \"memory\": \"180MB\"\n    }\n  ]\n}"
+    },
+    {
+      "user": "Immich ML is eating a lot of CPU. What's it doing?",
+      "tool": "service_logs",
+      "tool_result": "[2026-03-07 08:12:33] INFO: Processing batch 847/1203 - facial recognition\n[2026-03-07 08:12:34] INFO: Found 3 faces in IMG_4521.jpg (confidence: 0.94, 0.87, 0.72)\n[2026-03-07 08:12:35] INFO: Clustering face embeddings... 12,847 vectors\n[2026-03-07 08:12:38] INFO: Processing batch 848/1203 - facial recognition\n[2026-03-07 08:12:39] INFO: Found 1 face in IMG_4522.jpg (confidence: 0.96)\n[2026-03-07 08:12:40] INFO: Processing batch 849/1203 - CLIP embedding\n[2026-03-07 08:12:42] INFO: Generated CLIP embedding for IMG_4522.jpg (512-dim)\n[2026-03-07 08:12:44] WARNING: Low memory condition detected, GC triggered\n[2026-03-07 08:12:45] INFO: Memory reclaimed: 1.2GB freed\n[2026-03-07 08:12:46] INFO: Processing batch 850/1203 - facial recognition\n[2026-03-07 08:12:50] INFO: Queue status: 351 images remaining, ETA: ~45 minutes"
+    },
+    {
+      "user": "Ah right, we uploaded vacation photos yesterday. Is it going to be OK memory-wise?",
+      "tool": "docker_exec",
+      "tool_result": "{\n  \"container\": \"immich-ml\",\n  \"cpu_percent\": \"44.8%\",\n  \"memory\": {\n    \"usage\": \"8.2GB\",\n    \"limit\": \"12GB\",\n    \"percent\": \"68.3%\"\n  },\n  \"network\": {\n    \"rx\": \"2.1GB\",\n    \"tx\": \"156MB\"\n  },\n  \"pids\": 24\n}"
+    },
+    {
+      "user": "Good. Check if last night's backup ran. I want to make sure the vacation photos are safe.",
+      "tool": "backup_status",
+      "tool_result": "{\n  \"backup_jobs\": [\n    {\n      \"date\": \"2026-03-07T02:00:05\",\n      \"status\": \"completed_with_warnings\",\n      \"duration\": \"18m 42s\",\n      \"files_synced\": 1847,\n      \"bytes_transferred\": \"12.4GB\",\n      \"warnings\": [\n        \"Vault eject failed (non-fatal)\",\n        \"uchg flags applied successfully\"\n      ]\n    },\n    {\n      \"date\": \"2026-03-06T02:00:03\",\n      \"status\": \"completed\",\n      \"duration\": \"4m 11s\",\n      \"files_synced\": 23,\n      \"bytes_transferred\": \"89MB\",\n      \"warnings\": []\n    },\n    {\n      \"date\": \"2026-03-05T02:00:04\",\n      \"status\": \"completed\",\n      \"duration\": \"3m 58s\",\n      \"files_synced\": 15,\n      \"bytes_transferred\": \"42MB\",\n      \"warnings\": []\n    }\n  ]\n}"
+    },
+    {
+      "user": "The vault didn't eject again. How's disk space looking on all drives?",
+      "tool": "disk_usage",
+      "tool_result": "{\n  \"volumes\": [\n    {\n      \"mount\": \"/\",\n      \"size\": \"3.6TB\",\n      \"used\": \"1.2TB\",\n      \"available\": \"2.4TB\",\n      \"percent\": \"33%\"\n    },\n    {\n      \"mount\": \"/Volumes/backup-vault\",\n      \"size\": \"5.5TB\",\n      \"used\": \"3.8TB\",\n      \"available\": \"1.7TB\",\n      \"percent\": \"69%\"\n    },\n    {\n      \"mount\": \"/Volumes/time-machine\",\n      \"size\": \"5.5TB\",\n      \"used\": \"4.1TB\",\n      \"available\": \"1.4TB\",\n      \"percent\": \"75%\"\n    }\n  ],\n  \"data_directory\": {\n    \"path\": \"~/server/data\",\n    \"total_size\": \"892GB\",\n    \"breakdown\": [\n      {\n        \"dir\": \"photos\",\n        \"size\": \"634GB\"\n      },\n      {\n        \"dir\": \"documents\",\n        \"size\": \"12GB\"\n      },\n      {\n        \"dir\": \"messages\",\n        \"size\": \"2.1GB\"\n      },\n      {\n        \"dir\": \"code-repo\",\n        \"size\": \"890MB\"\n      }\n    ]\n  }\n}"
+    },
+    {
+      "user": "Time Machine is at 75%. Also did Paperless process the school documents I scanned this morning?",
+      "tool": "service_logs",
+      "tool_result": "[2026-03-07 07:45:12] INFO: Detected 3 new files in consumption directory\n[2026-03-07 07:45:13] INFO: Processing: school-report-emma-2026.pdf\n[2026-03-07 07:45:18] INFO: OCR completed (3 pages, lang=en, confidence=0.97)\n[2026-03-07 07:45:19] INFO: Auto-classified: Type=School Report, Tags=[education, emma]\n[2026-03-07 07:45:21] INFO: Processing: swimming-certificate-max.pdf\n[2026-03-07 07:45:24] INFO: OCR completed (1 page, confidence=0.94)\n[2026-03-07 07:45:25] INFO: Auto-classified: Type=Certificate, Tags=[sports, max]\n[2026-03-07 07:45:27] INFO: Processing: electricity-bill-march-2026.pdf\n[2026-03-07 07:45:31] INFO: OCR completed (2 pages, confidence=0.99)\n[2026-03-07 07:45:32] INFO: Auto-classified: Type=Invoice, Tags=[utilities, electricity]\n[2026-03-07 07:45:34] INFO: Consumption complete. 3 documents processed, 0 errors."
+    },
+    {
+      "user": "Nice, it even picked up the electricity bill. How big is the Matrix database? It's been chatty lately.",
+      "tool": "docker_exec",
+      "tool_result": "Database size: 2.1 GB\n\nLargest tables:\n  state_groups_state     845 MB\n  event_json             412 MB\n  events                 298 MB\n  event_edges            187 MB\n  receipts_linearized     94 MB\n  room_memberships        67 MB"
+    },
+    {
+      "user": "2.1GB for Matrix seems like a lot. Can we see which rooms take the most space?",
+      "tool": "docker_exec",
+      "tool_result": "{\n  \"rooms\": [\n    {\n      \"name\": \"#server\",\n      \"members\": 4,\n      \"events\": 12847\n    },\n    {\n      \"name\": \"#butler\",\n      \"members\": 2,\n      \"events\": 3421\n    },\n    {\n      \"name\": \"#alfred-bot\",\n      \"members\": 2,\n      \"events\": 1893\n    },\n    {\n      \"name\": \"#documents\",\n      \"members\": 3,\n      \"events\": 567\n    },\n    {\n      \"name\": \"#family\",\n      \"members\": 5,\n      \"events\": 8934\n    },\n    {\n      \"name\": \"#test-room\",\n      \"members\": 1,\n      \"events\": 4521\n    },\n    {\n      \"name\": \"#marvin-old\",\n      \"members\": 1,\n      \"events\": 2103\n    }\n  ],\n  \"total_events\": 34286\n}"
+    }
+  ]
+}
