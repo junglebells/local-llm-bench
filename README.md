@@ -2,6 +2,8 @@
 
 Scenario-based LLM benchmark for Apple Silicon. Measures what you actually wait for, not just the generation tok/s counter. Built for the [MLX vs llama.cpp analysis on famstack.dev](https://famstack.dev/guides/mlx-vs-gguf-apple-silicon).
 
+**Let's talk about it:** [Discord](https://discord.gg/tT54FNyf) | [Bluesky](https://bsky.app/profile/famstack.dev) | [Reddit](https://www.reddit.com/user/arthware/)
+
 ## Results
 
 Numbers show **effective tok/s** (generation tok/s in parentheses). Higher is better. Blank cells need your data.
@@ -34,15 +36,16 @@ At 8K context, a model reporting 57 tok/s generation speed delivers 3 tok/s effe
 
 > **See your Mac in that table with empty cells?** Run `python3 bench.py --model llama3.1:8b` and [open a PR](#contribute-your-results). Takes five minutes. No dependencies required.
 
-### qwen3.5:35b-a3b via LM Studio (MLX)
+### qwen3.5:35b-a3b (MLX vs GGUF via LM Studio)
 
-| Hardware | ops-agent | doc-summary | prefill-test | creative-writing |
-|---|---:|---:|---:|---:|
-| M1 Max (64GB, 24 GPU) | **17.0** (56.6) | **13.4** (56.8) | **5.9** (54.4) | **38.3** (58.9) |
+| Hardware | Format | ops-agent | doc-summary | prefill-test | creative-writing |
+|---|---|---:|---:|---:|---:|
+| M1 Max (64GB, 24 GPU) | MLX | **17.0** (56.6) | **13.4** (56.8) | **5.9** (54.4) | **38.3** (58.9) |
+| M1 Max (64GB, 24 GPU) | GGUF | **17.6** (28.2) | **19.4** (29.3) | **7.8** (28.4) | **27.7** (28.6) |
 
-Thinking was disabled for this benchmark. Qwen3.5 does excessive thinking by default, which inflates output token counts and is not really usable for agentic conversations.
+Thinking was disabled for this benchmark. Qwen3.5 does excessive thinking by default, which is not usable for agentic conversations.
 
-56 tok/s generation looks impressive. 17 tok/s effective in a simple 8-turn conversation puts it in perspective. MLX prefill is currently slow, at least on the M1 Max. Newer architectures might improve the picture.
+MLX generation is 2x faster (57 vs 28 tok/s). GGUF effective throughput is higher in every scenario except creative-writing. Prefill is the bottleneck. For the full analysis, read [MLX vs llama.cpp on Apple Silicon](https://famstack.dev/guides/mlx-vs-gguf-apple-silicon).
 
 ### Settings variations
 

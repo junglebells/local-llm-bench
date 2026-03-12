@@ -221,14 +221,9 @@ def make_model_slug(model_name):
       "lmstudio-community/qwen3.5-35b-a3b-gguf" → "qwen3.5-35b-a3b-gguf"
     """
     slug = model_name
-    # Strip common HuggingFace org prefixes
-    for prefix in ("mlx-community/", "lmstudio-community/", "bartowski/", "unsloth/"):
-        if slug.startswith(prefix):
-            slug = slug[len(prefix):]
-            break
     # Ollama uses colon as separator (qwen3.5:35b-a3b)
     slug = slug.replace(":", "-")
-    # Clean up any remaining slashes
+    # Slashes from org prefixes (mlx-community/, qwen/) become hyphens
     slug = slug.replace("/", "-")
     return slug.lower()
 
