@@ -20,7 +20,7 @@ At 8K context, a model reporting 57 tok/s generation speed delivers 3 tok/s effe
 
 | Hardware | ops-agent | doc-summary | prefill-test | creative-writing |
 |---|---:|---:|---:|---:|
-| M1 Max (64GB, 24 GPU) | **25.9** (32.5) | **17.3** (36.9) | **5.6** (29.4) | |
+| M1 Max (64GB, 24 GPU) | **27.1** (33.4) | **18.9** (37.8) | **5.8** (30.7) | **38.6** (39.6) |
 | M1 Pro (32GB, 16 GPU) | | | | |
 | M2 Pro (32GB, 19 GPU) | | | | |
 | M2 Max (64GB, 38 GPU) | | | | |
@@ -33,6 +33,16 @@ At 8K context, a model reporting 57 tok/s generation speed delivers 3 tok/s effe
 | M4 Max (64GB, 40 GPU) | | | | |
 
 > **See your Mac in that table with empty cells?** Run `python3 bench.py --model llama3.1:8b` and [open a PR](#contribute-your-results). Takes five minutes. No dependencies required.
+
+### qwen3.5:35b-a3b via LM Studio (MLX)
+
+| Hardware | ops-agent | doc-summary | prefill-test | creative-writing |
+|---|---:|---:|---:|---:|
+| M1 Max (64GB, 24 GPU) | **17.0** (56.6) | **13.4** (56.8) | **5.9** (54.4) | **38.3** (58.9) |
+
+Thinking was disabled for this benchmark. Qwen3.5 does excessive thinking by default, which inflates output token counts and is not really usable for agentic conversations.
+
+56 tok/s generation looks impressive. 17 tok/s effective in a simple 8-turn conversation puts it in perspective. MLX prefill is currently slow, at least on the M1 Max. Newer architectures might improve the picture.
 
 ### Settings variations
 
