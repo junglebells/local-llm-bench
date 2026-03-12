@@ -36,6 +36,15 @@ At 8K context, a model reporting 57 tok/s generation speed delivers 3 tok/s effe
 
 > **See your Mac in that table with empty cells?** Run `python3 bench.py --model llama3.1:8b` and [open a PR](#contribute-your-results). Takes five minutes. No dependencies required.
 
+### Meta-Llama-3.1-8B-Instruct (MLX vs GGUF via LM Studio)
+
+| Hardware | Format | ops-agent | doc-summary | prefill-test | creative-writing |
+|---|---|---:|---:|---:|---:|
+| M1 Max (64GB, 24 GPU) | MLX | **40.7** (55.0) | **21.9** (59.6) | **8.4** (51.8) | **58.9** (62.1) |
+| M1 Max (64GB, 24 GPU) | GGUF | **30.6** (36.4) | **18.5** (40.7) | **7.1** (33.4) | **38.1** (39.1) |
+
+MLX wins all four scenarios at 8B model size. The smaller model means prefill is fast enough that MLX's 1.5x generation speed advantage dominates. Compare with the 35B results below where GGUF wins on short outputs.
+
 ### qwen3.5:35b-a3b (MLX vs GGUF via LM Studio)
 
 | Hardware | Format | ops-agent | doc-summary | prefill-test | creative-writing |
