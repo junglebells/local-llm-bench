@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "scenario": "creative-writing",
+    "mode": "single-shot",
+    "label": "m1-max-64gb-24gpu ollama",
+    "backend": "ollama",
+    "model_info": {
+      "name": "llama3.1:8b",
+      "format": "gguf",
+      "family": "llama",
+      "parameter_size": "8.0B",
+      "quantization": "Q4_K_M"
+    },
+    "runs": 1,
+    "max_tokens": 2000,
+    "cold": false,
+    "warm_up_time": 2.026,
+    "system": {
+      "os": "Darwin",
+      "os_version": "26.2",
+      "arch": "arm64",
+      "chip": "Apple M1 Max",
+      "memory_gb": 64,
+      "cpu_cores": 10,
+      "cpu_cores_performance": 8,
+      "cpu_cores_efficiency": 2,
+      "gpu_cores": 24,
+      "gpu_wired_limit_mb": 0
+    },
+    "timestamp": "2026-03-12T15:17:58"
+  },
+  "results": [
+    {
+      "turn": 1,
+      "run": 1,
+      "ctx_tokens_est": 57,
+      "new_tokens_est": 29,
+      "ttft": 0.386,
+      "gen_time": 11.234,
+      "gen_tps": 39.5,
+      "total": 11.62,
+      "output_tokens": 444,
+      "prompt_eval_count": 67,
+      "prompt_eval_duration_ms": 269.1
+    },
+    {
+      "turn": 2,
+      "run": 1,
+      "ctx_tokens_est": 60,
+      "new_tokens_est": 32,
+      "ttft": 0.182,
+      "gen_time": 11.885,
+      "gen_tps": 39.5,
+      "total": 12.067,
+      "output_tokens": 469,
+      "prompt_eval_count": 69,
+      "prompt_eval_duration_ms": 107.7
+    },
+    {
+      "turn": 3,
+      "run": 1,
+      "ctx_tokens_est": 58,
+      "new_tokens_est": 31,
+      "ttft": 0.184,
+      "gen_time": 7.583,
+      "gen_tps": 39.8,
+      "total": 7.767,
+      "output_tokens": 302,
+      "prompt_eval_count": 68,
+      "prompt_eval_duration_ms": 108.8
+    }
+  ]
+}

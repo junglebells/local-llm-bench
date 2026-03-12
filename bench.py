@@ -412,7 +412,7 @@ def main():
                         default="ollama", help="Inference backend (default: ollama)")
     parser.add_argument("--base-url", default=None,
                         help="Override backend URL (default: auto from backend)")
-    parser.add_argument("--model", required=True,
+    parser.add_argument("--model", default=None,
                         help="Model name/identifier as known by the backend")
     parser.add_argument("--label", default=None,
                         help="Human-readable label (default: auto-generated from hardware + backend)")
@@ -422,7 +422,84 @@ def main():
                         help="Skip warm-up request (include model loading time in Turn 1)")
     parser.add_argument("--output", default=None,
                         help="Output JSON path (default: auto-generated). Only used with --scenario.")
+    parser.add_argument("--flash-attention", action="store_true",
+                        help="Enable OLLAMA_FLASH_ATTENTION before running (sets env, restarts Ollama)")
+    parser.add_argument("--kv-cache", default=None, metavar="TYPE",
+                        help="Set OLLAMA_KV_CACHE_TYPE before running (e.g. q4_0, q8_0). Restarts Ollama.")
+    parser.add_argument("--stock", action="store_true",
+                        help="Clear all Ollama tuning flags and restart before running.")
+    parser.add_argument("--check", action="store_true",
+                        help="Show detected hardware and tuning flags, then exit.")
     args = parser.parse_args()
+
+    # ── Apply or clear Ollama tuning flags ────────────────────────────
+    if args.stock or args.flash_attention or args.kv_cache:
+        from lib.output import _get_ollama_env
+        changed = False
+
+        if args.stock:
+            # Clear everything
+            for key in ["OLLAMA_FLASH_ATTENTION", "OLLAMA_KV_CACHE_TYPE"]:
+                if _get_ollama_env(key):
+                    subprocess.run(["launchctl", "unsetenv", key], check=False)
+                    os.environ.pop(key, None)
+                    changed = True
+            if changed:
+                print("  Cleared Ollama tuning flags.")
+        else:
+            if args.flash_attention:
+                subprocess.run(["launchctl", "setenv", "OLLAMA_FLASH_ATTENTION", "1"], check=True)
+                os.environ["OLLAMA_FLASH_ATTENTION"] = "1"
+                changed = True
+            else:
+                # Explicitly unset if not requested
+                if _get_ollama_env("OLLAMA_FLASH_ATTENTION"):
+                    subprocess.run(["launchctl", "unsetenv", "OLLAMA_FLASH_ATTENTION"], check=False)
+                    os.environ.pop("OLLAMA_FLASH_ATTENTION", None)
+                    changed = True
+
+            if args.kv_cache:
+                subprocess.run(["launchctl", "setenv", "OLLAMA_KV_CACHE_TYPE", args.kv_cache], check=True)
+                os.environ["OLLAMA_KV_CACHE_TYPE"] = args.kv_cache
+                changed = True
+            else:
+                if _get_ollama_env("OLLAMA_KV_CACHE_TYPE"):
+                    subprocess.run(["launchctl", "unsetenv", "OLLAMA_KV_CACHE_TYPE"], check=False)
+                    os.environ.pop("OLLAMA_KV_CACHE_TYPE", None)
+                    changed = True
+
+        if changed:
+            print("  Restarting Ollama...", end=" ", flush=True)
+            subprocess.run(["brew", "services", "restart", "ollama"],
+                           capture_output=True, check=True)
+            import time as _time
+            _time.sleep(3)
+            print("done.")
+
+    def print_config():
+        from lib.output import get_system_info, make_chip_slug, make_config_suffix
+        info = get_system_info()
+        suffix = make_config_suffix()
+        ollama = info.get("ollama", {})
+        fa = ollama.get("flash_attention")
+        kv = ollama.get("kv_cache_type")
+        wired = info.get("gpu_wired_limit_mb", 0)
+        print(f"\n  Hardware:        {info.get('chip', '?')} / {info.get('memory_gb', '?')}GB / {info.get('gpu_cores', '?')} GPU cores")
+        print(f"  Slug:            {make_chip_slug(info)}")
+        print(f"  Flash attention: {'ON' if fa else 'off'}")
+        print(f"  KV cache type:   {kv if kv else 'f16 (default)'}")
+        print(f"  GPU wired limit: {str(wired) + ' MB' if wired else 'default'}")
+        print(f"  Config suffix:   {'_' + suffix if suffix else '(none)'}")
+        print()
+
+    if args.check:
+        print_config()
+        sys.exit(0)
+
+    if not args.model:
+        parser.error("--model is required (e.g. --model llama3.1:8b)")
+
+    print_config()
 
     # Resolve backend URL (use default if not specified)
     base_url = args.base_url or DEFAULT_URLS[args.backend]

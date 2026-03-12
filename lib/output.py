@@ -53,6 +53,25 @@ def _sysctl(key):
         return None
 
 
+def _get_ollama_env(key):
+    """Read an Ollama env var. Checks os.environ first, then launchctl.
+
+    Users set these via 'launchctl setenv' which Ollama picks up on restart,
+    but the bench.py process only inherits them if they were also exported
+    in the shell. Checking launchctl covers both cases.
+    """
+    val = os.environ.get(key)
+    if val:
+        return val
+    try:
+        result = subprocess.check_output(
+            ["launchctl", "getenv", key], stderr=subprocess.DEVNULL,
+        ).decode().strip()
+        return result if result else None
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return None
+
+
 def get_system_info():
     """
     Collect hardware and OS specs for the current machine.
@@ -152,10 +171,10 @@ def get_system_info():
     # Ollama environment settings that affect inference performance.
     # These are set via: launchctl setenv OLLAMA_FLASH_ATTENTION 1
     ollama_settings = {}
-    fa = os.environ.get("OLLAMA_FLASH_ATTENTION")
+    fa = _get_ollama_env("OLLAMA_FLASH_ATTENTION")
     if fa:
         ollama_settings["flash_attention"] = fa
-    kv = os.environ.get("OLLAMA_KV_CACHE_TYPE")
+    kv = _get_ollama_env("OLLAMA_KV_CACHE_TYPE")
     if kv:
         ollama_settings["kv_cache_type"] = kv
     if ollama_settings:
@@ -222,9 +241,9 @@ def make_config_suffix():
     Returns something like "fa-kvq4" if flash attention + q4_0 KV cache are on.
     """
     parts = []
-    if os.environ.get("OLLAMA_FLASH_ATTENTION") == "1":
+    if _get_ollama_env("OLLAMA_FLASH_ATTENTION") == "1":
         parts.append("fa")
-    kv = os.environ.get("OLLAMA_KV_CACHE_TYPE")
+    kv = _get_ollama_env("OLLAMA_KV_CACHE_TYPE")
     if kv:
         parts.append(f"kv{kv.replace('_', '')}")
     return "-".join(parts)

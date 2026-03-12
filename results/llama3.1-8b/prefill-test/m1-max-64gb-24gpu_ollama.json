@@ -14,7 +14,6 @@
     "runs": 1,
     "max_tokens": 150,
     "cold": false,
-    "warm_up_time": 0.231,
     "system": {
       "os": "Darwin",
       "os_version": "26.2",
@@ -27,7 +26,7 @@
       "gpu_cores": 24,
       "gpu_wired_limit_mb": 0
     },
-    "timestamp": "2026-03-12T14:04:21"
+    "timestamp": "2026-03-12T15:20:47"
   },
   "results": [
     {
@@ -35,52 +34,52 @@
       "run": 1,
       "ctx_tokens_est": 655,
       "new_tokens_est": 540,
-      "ttft": 2.373,
-      "gen_time": 2.966,
-      "gen_tps": 35.4,
-      "total": 5.339,
-      "output_tokens": 105,
+      "ttft": 2.235,
+      "gen_time": 2.77,
+      "gen_tps": 37.5,
+      "total": 5.006,
+      "output_tokens": 104,
       "prompt_eval_count": 760,
-      "prompt_eval_duration_ms": 2283.1
+      "prompt_eval_duration_ms": 2102.6
     },
     {
       "turn": 2,
       "run": 1,
       "ctx_tokens_est": 1453,
       "new_tokens_est": 1338,
-      "ttft": 4.976,
-      "gen_time": 4.496,
-      "gen_tps": 33.4,
-      "total": 9.472,
+      "ttft": 4.591,
+      "gen_time": 4.286,
+      "gen_tps": 35.0,
+      "total": 8.878,
       "output_tokens": 150,
       "prompt_eval_count": 1676,
-      "prompt_eval_duration_ms": 4898.1
+      "prompt_eval_duration_ms": 4512.5
     },
     {
       "turn": 3,
       "run": 1,
       "ctx_tokens_est": 3015,
       "new_tokens_est": 2900,
-      "ttft": 11.651,
-      "gen_time": 5.058,
-      "gen_tps": 29.7,
-      "total": 16.709,
+      "ttft": 11.282,
+      "gen_time": 4.927,
+      "gen_tps": 30.4,
+      "total": 16.209,
       "output_tokens": 150,
       "prompt_eval_count": 3607,
-      "prompt_eval_duration_ms": 11570.6
+      "prompt_eval_duration_ms": 11201.9
     },
     {
       "turn": 4,
       "run": 1,
       "ctx_tokens_est": 8496,
       "new_tokens_est": 8381,
-      "ttft": 60.09,
-      "gen_time": 7.768,
-      "gen_tps": 19.3,
-      "total": 67.857,
+      "ttft": 58.011,
+      "gen_time": 7.552,
+      "gen_tps": 19.9,
+      "total": 65.563,
       "output_tokens": 150,
       "prompt_eval_count": 12477,
-      "prompt_eval_duration_ms": 60003.3
+      "prompt_eval_duration_ms": 57924.5
     }
   ]
 }
