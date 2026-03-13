@@ -31,6 +31,9 @@ USAGE:
   # Run against raw llama-server (llama.cpp without Ollama wrapper)
   python3 bench.py --backend llama-server --base-url http://localhost:8090 --model qwen3.5:35b-a3b --label "llama-server"
 
+  # Run against any OpenAI-compatible endpoint (vLLM, TGI, LocalAI, etc.)
+  python3 bench.py --backend openai --base-url http://localhost:8000 --model my-model --label "vLLM"
+
   # Run twice to compare cold vs warm cache
   python3 bench.py --model qwen3.5:35b-a3b --label "Ollama" --runs 2
 
@@ -104,6 +107,19 @@ INSTALL_HINTS = {
         "\n"
         "  Models: MiniMax-M2.5, MiniMax-M2.5-highspeed"
     ),
+    "openai": (
+        "OpenAI-compatible endpoint is not running at {url}.\n"
+        "\n"
+        "  This backend works with any server that implements the OpenAI API:\n"
+        "    vLLM, text-generation-inference, LocalAI, LiteLLM, etc.\n"
+        "\n"
+        "  To fix:\n"
+        "    1. Start your inference server\n"
+        "    2. Verify:  curl {url}/v1/models\n"
+        "    3. If auth is required:  export OPENAI_API_KEY=your-key-here\n"
+        "\n"
+        "  Use --base-url to point to a different host/port."
+    ),
 }
 
 
@@ -136,6 +152,11 @@ def check_backend(backend, base_url, model):
 
     try:
         req = urllib.request.Request(check_url)
+        # Pass API key for openai backend if set
+        if backend == "openai":
+            api_key = os.environ.get("OPENAI_API_KEY", "")
+            if api_key:
+                req.add_header("Authorization", f"Bearer {api_key}")
         resp = urllib.request.urlopen(req, timeout=10)
         body = resp.read()
     except (urllib.error.URLError, OSError) as e:
@@ -384,6 +405,7 @@ def run_single(args, scenario_path, script_dir, stream_fn, base_url, warm_up_don
     Returns the warm_up_time (so we only warm up once for --all).
     """
     scenario = load_scenario(scenario_path)
+    backend_key = args.backend_label or args.backend
 
     # Warm up once (first scenario only)
     warm_up_time = None
@@ -392,7 +414,7 @@ def run_single(args, scenario_path, script_dir, stream_fn, base_url, warm_up_don
 
     results = run_scenario(
         scenario, stream_fn, base_url, args.model,
-        runs=args.runs, backend=args.backend,
+        runs=args.runs, backend=backend_key,
     )
 
     # Don't save if every turn failed
@@ -402,14 +424,14 @@ def run_single(args, scenario_path, script_dir, stream_fn, base_url, warm_up_don
         return warm_up_time
 
     # Save results
-    label = args.label or f"{make_chip_slug()} {args.backend}"
-    outpath = args.output or make_result_path(script_dir, args.model, scenario["name"], args.backend)
+    label = args.label or f"{make_chip_slug()} {backend_key}"
+    outpath = args.output or make_result_path(script_dir, args.model, scenario["name"], backend_key)
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
     meta = {
         "scenario": scenario["name"],
         "mode": scenario.get("mode", "conversation"),
         "label": label,
-        "backend": args.backend,
+        "backend": backend_key,
         "model_info": get_model_info(args.backend, base_url, args.model),
         "runs": args.runs,
         "max_tokens": scenario.get("max_tokens", 500),
@@ -430,8 +452,10 @@ def main():
     )
     parser.add_argument("--scenario", default=None,
                         help="Run a single scenario JSON file. Default: runs ALL scenarios.")
-    parser.add_argument("--backend", choices=["ollama", "lmstudio", "llama-server", "minimax"],
+    parser.add_argument("--backend", choices=["ollama", "lmstudio", "llama-server", "minimax", "openai"],
                         default="ollama", help="Inference backend (default: ollama)")
+    parser.add_argument("--backend-label", default=None,
+                        help="Custom backend name for result paths and metadata (e.g. omlx, vllm)")
     parser.add_argument("--base-url", default=None,
                         help="Override backend URL (default: auto from backend)")
     parser.add_argument("--model", default=None,
@@ -557,7 +581,8 @@ def main():
 
         # ── Contribute prompt ─────────────────────────────────────────
         chip_slug = make_chip_slug()
-        model_slug = make_result_path(script_dir, args.model, "", args.backend).split("/results/")[1].split("/")[0]
+        backend_key = args.backend_label or args.backend
+        model_slug = make_result_path(script_dir, args.model, "", backend_key).split("/results/")[1].split("/")[0]
         branch = f"results/{chip_slug}"
 
         # Detect if this is a direct clone (no push access) or a fork
@@ -582,10 +607,10 @@ def main():
         print(f"  Then commit and open a PR:\n")
         print(f"  git checkout -b {branch}")
         print(f"  git add results/")
-        print(f"  git commit -m \"results: {chip_slug} {args.backend} {model_slug}\"")
+        print(f"  git commit -m \"results: {chip_slug} {backend_key} {model_slug}\"")
         print(f"  git push -u origin {branch}")
         print(f"  gh pr create --title \"results: {chip_slug}\" \\")
-        print(f"    --body \"Benchmark results from {chip_slug} using {args.backend}\"")
+        print(f"    --body \"Benchmark results from {chip_slug} using {backend_key}\"")
         print(f"\n  Your numbers will be added to the comparison table at")
         print(f"  https://famstack.dev/guides/mlx-vs-gguf-apple-silicon")
         print(f"\n{'='*70}\n")

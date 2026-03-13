@@ -56,6 +56,17 @@ Thinking was disabled for this benchmark. Qwen3.5 does excessive thinking by def
 
 MLX generation is 2x faster (57 vs 28 tok/s). GGUF effective throughput is higher in every scenario except creative-writing. Prefill is the bottleneck. For the full analysis, read [MLX vs llama.cpp on Apple Silicon](https://famstack.dev/guides/mlx-vs-gguf-apple-silicon).
 
+### qwen3.5:35b-a3b (oMLX vs LM Studio MLX)
+
+| Hardware | Backend | ops-agent | doc-summary | prefill-test | creative-writing |
+|---|---|---:|---:|---:|---:|
+| M1 Max (64GB, 24 GPU) | oMLX | **34.6** (53.3) | **25.7** (55.5) | **30.0** (52.0) | **51.5** (56.2) |
+| M1 Max (64GB, 24 GPU) | LM Studio | **17.0** (56.6) | **13.4** (56.8) | **5.9** (54.4) | **38.3** (58.9) |
+
+Generation speed is virtually identical (~54-57 tok/s both). The difference is entirely in prefill: oMLX is up to **10x faster** on long contexts. At 8K context (prefill-test turn 4), LM Studio takes 49s to prefill while oMLX takes 1.7s. This suggests oMLX has prompt caching or a significantly better prefill implementation.
+
+**Recommendation:** For Qwen3.5-35B-A3B on Apple Silicon, oMLX is the clear winner. Same generation speed, dramatically faster prefill. The effective throughput advantage ranges from 1.3x (creative-writing, short context) to 5x (prefill-test, long context).
+
 ### Settings variations
 
 Default results above use Ollama with stock settings. These tables track how tuning flags affect performance on the same hardware.
@@ -130,8 +141,8 @@ In an 8-turn agent conversation, the model with 53 tok/s generation speed loses 
 ### Requirements
 
 - Python 3.8+ (stdlib only, no pip install needed)
-- A running inference backend: [Ollama](https://ollama.com/), [LM Studio](https://lmstudio.ai/), raw [llama-server](https://github.com/ggml-org/llama.cpp), or [MiniMax](https://platform.minimax.io/) (cloud API)
-- A model loaded in that backend (or a `MINIMAX_API_KEY` for cloud)
+- A running inference backend: [Ollama](https://ollama.com/), [LM Studio](https://lmstudio.ai/), raw [llama-server](https://github.com/ggml-org/llama.cpp), [MiniMax](https://platform.minimax.io/) (cloud API), or any OpenAI-compatible endpoint
+- A model loaded in that backend (or API key for authenticated endpoints)
 
 ### Run a Benchmark
 
@@ -147,6 +158,9 @@ python3 bench.py --backend lmstudio --model mlx-community/qwen3.5-35b-a3b
 
 # Against raw llama-server (llama.cpp without Ollama)
 python3 bench.py --backend llama-server --base-url http://localhost:8090 --model qwen3.5:35b-a3b
+
+# Against any OpenAI-compatible endpoint (vLLM, oMLX, TGI, LocalAI, etc.)
+python3 bench.py --backend openai --base-url http://localhost:8888 --model my-model --backend-label omlx
 
 # Against MiniMax cloud API (compare local vs cloud)
 export MINIMAX_API_KEY=your-key-here
@@ -259,6 +273,7 @@ Prefill chunk size benchmarks from [thornad/lmstudio-mlx-patch](https://github.c
 | LM Studio | `--backend lmstudio` | `http://localhost:1234` | MLX or llama.cpp depending on model format |
 | llama-server | `--backend llama-server` | `http://localhost:8090` | Raw llama.cpp (GGUF), no wrapper overhead |
 | MiniMax | `--backend minimax` | `https://api.minimax.io` | MiniMax cloud API (OpenAI-compatible) |
+| OpenAI-compat | `--backend openai` | `http://localhost:8080` | Any OpenAI-compatible endpoint (vLLM, TGI, LocalAI, oMLX, etc.) |
 
 Override any URL with `--base-url`.
 
@@ -282,6 +297,21 @@ Available models:
 |---|---|---|
 | `MiniMax-M2.5` | 204K tokens | Peak performance, ultimate value |
 | `MiniMax-M2.5-highspeed` | 204K tokens | Same quality, faster response |
+
+### oMLX (OpenAI-compatible)
+
+[oMLX](https://github.com/jundot/omlx) is a local inference server built specifically for Apple Silicon. It uses the MLX engine with a tiered KV cache (hot tier in RAM, cold tier on SSD) that persists across requests — this is why it dominates prefill benchmarks compared to LM Studio's MLX engine. Other notable features include continuous batching, multi-model serving with LRU eviction, and a native macOS menu bar app.
+
+```bash
+# Set API key if configured in oMLX
+export OPENAI_API_KEY=your-key
+
+# Run with a custom backend label so results are clearly identified
+python3 bench.py --backend openai --backend-label omlx --base-url http://localhost:8888 \
+  --model "Qwen3.5-35B-A3B-4bit" --label "oMLX MLX"
+```
+
+See the [oMLX vs LM Studio comparison](#qwen3535b-a3b-omlx-vs-lm-studio-mlx) above — on Qwen3.5-35B-A3B, oMLX delivers up to 5x faster effective throughput at long contexts with identical generation speed.
 
 ## Scenarios
 
@@ -384,7 +414,7 @@ local-llm-bench/
 ├── compare.py            # Side-by-side comparison tool
 ├── results-table.py      # Regenerate the results overview table
 ├── lib/
-│   ├── backends.py       # Backend adapters (Ollama, LM Studio, llama-server, MiniMax)
+│   ├── backends.py       # Backend adapters (Ollama, LM Studio, llama-server, MiniMax, OpenAI-compat)
 │   └── output.py         # Result storage, slug generation, display helpers
 ├── scenarios/
 │   ├── ops-agent.json    # 8-turn server ops conversation with tool calls

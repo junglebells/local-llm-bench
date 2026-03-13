@@ -54,6 +54,7 @@ DEFAULT_URLS = {
     "lmstudio": "http://localhost:1234",
     "llama-server": "http://localhost:8090",
     "minimax": "https://api.minimax.io",
+    "openai": "http://localhost:8080",
 }
 
 
@@ -281,6 +282,25 @@ def stream_minimax(base_url, model, messages, max_tokens=300, temperature=0.6, t
     )
 
 
+def stream_openai_compat(base_url, model, messages, max_tokens=300, temperature=0.6, timeout=300):
+    """
+    Stream a chat completion via any OpenAI-compatible endpoint.
+
+    Works with vLLM, text-generation-inference, LocalAI, LiteLLM, or any
+    server that implements POST /v1/chat/completions with SSE streaming.
+
+    Set OPENAI_API_KEY if the endpoint requires authentication.
+    """
+    extra_headers = {}
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if api_key:
+        extra_headers["Authorization"] = f"Bearer {api_key}"
+    return stream_openai(
+        base_url, model, messages, max_tokens, temperature, timeout,
+        extra_headers=extra_headers or None,
+    )
+
+
 def get_model_info(backend, base_url, model):
     """
     Fetch model details from the backend, if available.
@@ -337,10 +357,11 @@ def get_backend(name):
     can treat all backends identically.
     """
     backends = {
-        "ollama": stream_ollama,       # Native API with think:false + eval stats
-        "lmstudio": stream_openai,     # OpenAI-compatible SSE
-        "llama-server": stream_openai, # OpenAI-compatible SSE (raw llama.cpp)
-        "minimax": stream_minimax,     # MiniMax cloud API (OpenAI-compatible)
+        "ollama": stream_ollama,              # Native API with think:false + eval stats
+        "lmstudio": stream_openai,            # OpenAI-compatible SSE
+        "llama-server": stream_openai,        # OpenAI-compatible SSE (raw llama.cpp)
+        "minimax": stream_minimax,            # MiniMax cloud API (OpenAI-compatible)
+        "openai": stream_openai_compat,       # Any OpenAI-compatible endpoint
     }
     if name not in backends:
         raise ValueError(f"Unknown backend: {name}. Choose from: {', '.join(backends)}")

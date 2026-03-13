@@ -1,0 +1,125 @@
+{
+  "meta": {
+    "scenario": "ops-agent",
+    "mode": "conversation",
+    "label": "oMLX MLX",
+    "backend": "omlx",
+    "model_info": {
+      "name": "Qwen3.5-35B-A3B-4bit"
+    },
+    "runs": 1,
+    "max_tokens": 500,
+    "cold": false,
+    "system": {
+      "os": "Darwin",
+      "os_version": "26.2",
+      "arch": "arm64",
+      "chip": "Apple M1 Max",
+      "memory_gb": 64,
+      "cpu_cores": 10,
+      "cpu_cores_performance": 8,
+      "cpu_cores_efficiency": 2,
+      "gpu_cores": 24,
+      "gpu_wired_limit_mb": 0
+    },
+    "timestamp": "2026-03-13T16:33:49"
+  },
+  "results": [
+    {
+      "turn": 1,
+      "run": 1,
+      "ctx_tokens_est": 575,
+      "new_tokens_est": 421,
+      "ttft": 2.109,
+      "gen_time": 5.432,
+      "gen_tps": 54.5,
+      "total": 7.541,
+      "output_tokens": 296,
+      "tool": "server_status"
+    },
+    {
+      "turn": 2,
+      "run": 1,
+      "ctx_tokens_est": 1077,
+      "new_tokens_est": 235,
+      "ttft": 4.124,
+      "gen_time": 7.354,
+      "gen_tps": 54.8,
+      "total": 11.478,
+      "output_tokens": 403,
+      "tool": "service_logs"
+    },
+    {
+      "turn": 3,
+      "run": 1,
+      "ctx_tokens_est": 1582,
+      "new_tokens_est": 89,
+      "ttft": 3.14,
+      "gen_time": 7.775,
+      "gen_tps": 54.4,
+      "total": 10.915,
+      "output_tokens": 423,
+      "tool": "docker_exec"
+    },
+    {
+      "turn": 4,
+      "run": 1,
+      "ctx_tokens_est": 2246,
+      "new_tokens_est": 214,
+      "ttft": 2.344,
+      "gen_time": 5.728,
+      "gen_tps": 53.8,
+      "total": 8.071,
+      "output_tokens": 308,
+      "tool": "backup_status"
+    },
+    {
+      "turn": 5,
+      "run": 1,
+      "ctx_tokens_est": 2808,
+      "new_tokens_est": 239,
+      "ttft": 4.155,
+      "gen_time": 9.382,
+      "gen_tps": 52.3,
+      "total": 13.537,
+      "output_tokens": 491,
+      "tool": "disk_usage"
+    },
+    {
+      "turn": 6,
+      "run": 1,
+      "ctx_tokens_est": 3456,
+      "new_tokens_est": 249,
+      "ttft": 4.075,
+      "gen_time": 7.576,
+      "gen_tps": 52.7,
+      "total": 11.651,
+      "output_tokens": 399,
+      "tool": "service_logs"
+    },
+    {
+      "turn": 7,
+      "run": 1,
+      "ctx_tokens_est": 3910,
+      "new_tokens_est": 98,
+      "ttft": 2.802,
+      "gen_time": 7.746,
+      "gen_tps": 52.3,
+      "total": 10.548,
+      "output_tokens": 405,
+      "tool": "docker_exec"
+    },
+    {
+      "turn": 8,
+      "run": 1,
+      "ctx_tokens_est": 4505,
+      "new_tokens_est": 188,
+      "ttft": 2.109,
+      "gen_time": 8.427,
+      "gen_tps": 51.5,
+      "total": 10.536,
+      "output_tokens": 434,
+      "tool": "docker_exec"
+    }
+  ]
+}
