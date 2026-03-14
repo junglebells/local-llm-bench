@@ -153,8 +153,8 @@ python3 bench.py --model llama3.1:8b
 # Run a single scenario
 python3 bench.py --model llama3.1:8b --scenario scenarios/creative-writing.json
 
-# Against LM Studio (MLX model)
-python3 bench.py --backend lmstudio --model mlx-community/qwen3.5-35b-a3b
+# Against LM Studio (--no-think disables Qwen3.5 thinking, restores template when done)
+python3 bench.py --backend lmstudio --model mlx-community/qwen3.5-35b-a3b --no-think
 
 # Against raw llama-server (llama.cpp without Ollama)
 python3 bench.py --backend llama-server --base-url http://localhost:8090 --model qwen3.5:35b-a3b
@@ -308,7 +308,7 @@ export OPENAI_API_KEY=your-key
 
 # Run with a custom backend label so results are clearly identified
 python3 bench.py --backend openai --backend-label omlx --base-url http://localhost:8888 \
-  --model "Qwen3.5-35B-A3B-4bit" --label "oMLX MLX"
+  --model "Qwen3.5-35B-A3B-4bit" --label "oMLX MLX" --no-think
 ```
 
 See the [oMLX vs LM Studio comparison](#qwen3535b-a3b-omlx-vs-lm-studio-mlx) above — on Qwen3.5-35B-A3B, oMLX delivers up to 5x faster effective throughput at long contexts with identical generation speed.

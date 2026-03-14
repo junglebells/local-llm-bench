@@ -25,8 +25,8 @@ USAGE:
   # Run against Ollama (default backend)
   python3 bench.py --model qwen3.5:35b-a3b --label "Ollama GGUF"
 
-  # Run against LM Studio
-  python3 bench.py --backend lmstudio --model mlx-community/qwen3.5-35b-a3b --label "LM Studio MLX"
+  # Run against LM Studio (--no-think disables Qwen3.5 thinking, restores template when done)
+  python3 bench.py --backend lmstudio --model mlx-community/qwen3.5-35b-a3b --label "LM Studio MLX" --no-think
 
   # Run against raw llama-server (llama.cpp without Ollama wrapper)
   python3 bench.py --backend llama-server --base-url http://localhost:8090 --model qwen3.5:35b-a3b --label "llama-server"
@@ -49,6 +49,8 @@ REQUIREMENTS:
 import argparse
 import json
 import os
+import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -60,6 +62,96 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from lib.backends import get_backend, get_model_info, DEFAULT_URLS
 from lib.output import save_results, make_result_path, make_chip_slug, print_turn_header, print_turn_row, print_summary
+
+
+# ── Thinking mode management for Qwen3.5 ─────────────────────────────
+# Qwen3.5 defaults to thinking enabled. The chat template injects a
+# <think> block that the model fills with hidden reasoning, burning tokens
+# and distorting benchmarks. Disabling it requires patching the template.
+#
+# Model directories per backend:
+#   LM Studio: ~/.lmstudio/models/<model>/chat_template.jinja
+#   oMLX:      ~/.omlx/models/<model>/chat_template.jinja
+MODEL_DIRS = {
+    "lmstudio": os.path.expanduser("~/.lmstudio/models"),
+    "openai":   os.path.expanduser("~/.omlx/models"),
+}
+THINK_OFF_LINE = "    {{- '<think>\\n\\n</think>\\n\\n' }}"
+THINK_ON_TAIL = """{%- if add_generation_prompt %}
+    {{- '<|im_start|>assistant\\n' }}
+{%- endif %}"""
+THINK_OFF_TAIL = """{%- if add_generation_prompt %}
+    {{- '<|im_start|>assistant\\n' }}
+    {{- '<think>\\n\\n</think>\\n\\n' }}
+{%- endif %}"""
+
+
+def find_chat_template(backend, model):
+    """
+    Resolve the chat_template.jinja path for a given backend and model.
+
+    Models are stored as:
+      <model_dir>/<model>/chat_template.jinja
+
+    where <model> is the --model value (e.g. mlx-community/Qwen3.5-35B-A3B-4bit).
+    """
+    model_dir = MODEL_DIRS.get(backend)
+    if not model_dir:
+        return None
+    template = os.path.join(model_dir, model, "chat_template.jinja")
+    if os.path.exists(template):
+        return template
+    return None
+
+
+def _thinking_is_off(template_path):
+    """Check if the template already has thinking disabled."""
+    with open(template_path) as f:
+        return THINK_OFF_LINE in f.read()
+
+
+def disable_thinking(template_path):
+    """
+    Back up the chat template and patch it to disable thinking.
+
+    Returns the backup path, or None if thinking was already off.
+    """
+    if not os.path.exists(template_path):
+        print(f"  Warning: --no-think ignored, template not found: {template_path}", file=sys.stderr)
+        return None
+
+    if _thinking_is_off(template_path):
+        print("  Thinking is already OFF in the template.")
+        return None
+
+    # Back up the original — this is the file we MUST restore
+    backup_path = template_path + ".bench-backup"
+    shutil.copy2(template_path, backup_path)
+
+    # Patch: inject pre-closed <think> block
+    text = open(template_path).read()
+    text = text.replace(THINK_ON_TAIL, THINK_OFF_TAIL)
+    with open(template_path, "w") as f:
+        f.write(text)
+
+    # Verify
+    if not _thinking_is_off(template_path):
+        # Restore immediately if patch failed
+        shutil.copy2(backup_path, template_path)
+        os.remove(backup_path)
+        print("  Error: Failed to patch thinking template.", file=sys.stderr)
+        sys.exit(1)
+
+    print("  Thinking disabled in template (backup saved).")
+    return backup_path
+
+
+def restore_thinking(template_path, backup_path):
+    """Restore the original chat template from backup."""
+    if backup_path and os.path.exists(backup_path):
+        shutil.copy2(backup_path, template_path)
+        os.remove(backup_path)
+        print("\n  Template restored to original state.")
 
 
 # ── Install instructions shown when a backend isn't reachable ────────
@@ -474,6 +566,9 @@ def main():
                         help="Set OLLAMA_KV_CACHE_TYPE before running (e.g. q4_0, q8_0). Restarts Ollama.")
     parser.add_argument("--stock", action="store_true",
                         help="Clear all Ollama tuning flags and restart before running.")
+    parser.add_argument("--no-think", action="store_true",
+                        help="Disable thinking in the Qwen3.5 chat template before running. "
+                             "Backs up the original template and restores it when done (or on error/Ctrl+C).")
     parser.add_argument("--check", action="store_true",
                         help="Show detected hardware and tuning flags, then exit.")
     args = parser.parse_args()
@@ -558,62 +653,88 @@ def main():
     # ── Pre-flight check ─────────────────────────────────────────────
     check_backend(args.backend, base_url, args.model)
 
-    if args.scenario:
-        # Run a single scenario
-        scenario_path = args.scenario if os.path.isabs(args.scenario) else os.path.join(script_dir, args.scenario)
-        run_single(args, scenario_path, script_dir, stream_fn, base_url, warm_up_done=False)
-    else:
-        # Default: run all scenarios
-        scenarios = find_all_scenarios(script_dir)
-        if not scenarios:
-            print("Error: No scenario files found in scenarios/", file=sys.stderr)
-            sys.exit(1)
-        total = len(scenarios)
-        print(f"\n  Running all {total} scenarios...\n")
-        warm_up_done = False
-        for i, scenario_path in enumerate(scenarios, 1):
-            name = os.path.basename(scenario_path).replace(".json", "")
-            print(f"\n  [{i}/{total}] {name}")
-            warm_up_time = run_single(args, scenario_path, script_dir, stream_fn, base_url, warm_up_done)
-            if warm_up_time is not None:
-                warm_up_done = True
-        print(f"\n  All {total} scenarios complete.")
+    # ── Disable thinking if requested ─────────────────────────────────
+    # Patches the Qwen3.5 chat template to inject a pre-closed <think>
+    # block. The original is backed up and restored in ALL cases:
+    # normal exit, errors, and Ctrl+C.
+    thinking_backup = None
+    template_path = None
+    if args.no_think:
+        template_path = find_chat_template(args.backend, args.model)
+        if template_path:
+            thinking_backup = disable_thinking(template_path)
+        else:
+            print(f"  Warning: --no-think ignored, no chat template found for {args.backend}/{args.model}",
+                  file=sys.stderr)
+        if thinking_backup:
+            # Catch Ctrl+C and SIGTERM so we always restore
+            def _restore_on_signal(signum, frame):
+                restore_thinking(template_path, thinking_backup)
+                sys.exit(1)
+            signal.signal(signal.SIGINT, _restore_on_signal)
+            signal.signal(signal.SIGTERM, _restore_on_signal)
 
-        # ── Contribute prompt ─────────────────────────────────────────
-        chip_slug = make_chip_slug()
-        backend_key = args.backend_label or args.backend
-        model_slug = make_result_path(script_dir, args.model, "", backend_key).split("/results/")[1].split("/")[0]
-        branch = f"results/{chip_slug}"
+    try:
+        if args.scenario:
+            # Run a single scenario
+            scenario_path = args.scenario if os.path.isabs(args.scenario) else os.path.join(script_dir, args.scenario)
+            run_single(args, scenario_path, script_dir, stream_fn, base_url, warm_up_done=False)
+        else:
+            # Default: run all scenarios
+            scenarios = find_all_scenarios(script_dir)
+            if not scenarios:
+                print("Error: No scenario files found in scenarios/", file=sys.stderr)
+                sys.exit(1)
+            total = len(scenarios)
+            print(f"\n  Running all {total} scenarios...\n")
+            warm_up_done = False
+            for i, scenario_path in enumerate(scenarios, 1):
+                name = os.path.basename(scenario_path).replace(".json", "")
+                print(f"\n  [{i}/{total}] {name}")
+                warm_up_time = run_single(args, scenario_path, script_dir, stream_fn, base_url, warm_up_done)
+                if warm_up_time is not None:
+                    warm_up_done = True
+            print(f"\n  All {total} scenarios complete.")
 
-        # Detect if this is a direct clone (no push access) or a fork
-        is_fork = False
-        try:
-            remote_url = subprocess.check_output(
-                ["git", "remote", "get-url", "origin"],
-                stderr=subprocess.DEVNULL, cwd=script_dir,
-            ).decode().strip()
-            is_fork = "famstack-dev/local-llm-bench" not in remote_url
-        except (subprocess.SubprocessError, FileNotFoundError):
-            pass
+            # ── Contribute prompt ─────────────────────────────────────────
+            chip_slug = make_chip_slug()
+            backend_key = args.backend_label or args.backend
+            model_slug = make_result_path(script_dir, args.model, "", backend_key).split("/results/")[1].split("/")[0]
+            branch = f"results/{chip_slug}"
 
-        print(f"\n{'='*70}")
-        print(f"\n  Want to contribute your results?\n")
+            # Detect if this is a direct clone (no push access) or a fork
+            is_fork = False
+            try:
+                remote_url = subprocess.check_output(
+                    ["git", "remote", "get-url", "origin"],
+                    stderr=subprocess.DEVNULL, cwd=script_dir,
+                ).decode().strip()
+                is_fork = "famstack-dev/local-llm-bench" not in remote_url
+            except (subprocess.SubprocessError, FileNotFoundError):
+                pass
 
-        if not is_fork:
-            print(f"  You cloned the repo directly. Fork it first:\n")
-            print(f"  gh repo fork famstack-dev/local-llm-bench --clone=false")
-            print(f"  git remote set-url origin https://github.com/<you>/local-llm-bench.git\n")
+            print(f"\n{'='*70}")
+            print(f"\n  Want to contribute your results?\n")
 
-        print(f"  Then commit and open a PR:\n")
-        print(f"  git checkout -b {branch}")
-        print(f"  git add results/")
-        print(f"  git commit -m \"results: {chip_slug} {backend_key} {model_slug}\"")
-        print(f"  git push -u origin {branch}")
-        print(f"  gh pr create --title \"results: {chip_slug}\" \\")
-        print(f"    --body \"Benchmark results from {chip_slug} using {backend_key}\"")
-        print(f"\n  Your numbers will be added to the comparison table at")
-        print(f"  https://famstack.dev/guides/mlx-vs-gguf-apple-silicon")
-        print(f"\n{'='*70}\n")
+            if not is_fork:
+                print(f"  You cloned the repo directly. Fork it first:\n")
+                print(f"  gh repo fork famstack-dev/local-llm-bench --clone=false")
+                print(f"  git remote set-url origin https://github.com/<you>/local-llm-bench.git\n")
+
+            print(f"  Then commit and open a PR:\n")
+            print(f"  git checkout -b {branch}")
+            print(f"  git add results/")
+            print(f"  git commit -m \"results: {chip_slug} {backend_key} {model_slug}\"")
+            print(f"  git push -u origin {branch}")
+            print(f"  gh pr create --title \"results: {chip_slug}\" \\")
+            print(f"    --body \"Benchmark results from {chip_slug} using {backend_key}\"")
+            print(f"\n  Your numbers will be added to the comparison table at")
+            print(f"  https://famstack.dev/guides/mlx-vs-gguf-apple-silicon")
+            print(f"\n{'='*70}\n")
+    finally:
+        # ── Always restore the original template ──────────────────────
+        if template_path:
+            restore_thinking(template_path, thinking_backup)
 
 
 if __name__ == "__main__":
