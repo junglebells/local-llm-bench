@@ -181,7 +181,7 @@ def compare(files):
         for i, (label, total) in enumerate(zip(labels, totals)):
             if i != winner_idx and total < float("inf"):
                 diff = total - totals[winner_idx]
-                pct = diff / total * 100
+                pct = diff / totals[winner_idx] * 100
                 print(f"  {label}: +{diff:.1f}s slower ({pct:.0f}%)")
 
 

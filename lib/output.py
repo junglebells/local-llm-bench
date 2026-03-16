@@ -216,9 +216,9 @@ def make_model_slug(model_name):
     Normalize a model identifier into a filesystem-safe slug.
 
     Examples:
-      "qwen3.5:35b-a3b"                        → "qwen3.5-35b-a3b"
-      "mlx-community/qwen3.5-35b-a3b"          → "qwen3.5-35b-a3b"
-      "lmstudio-community/qwen3.5-35b-a3b-gguf" → "qwen3.5-35b-a3b-gguf"
+      "qwen3.5:35b-a3b"                         → "qwen3.5-35b-a3b"
+      "mlx-community/qwen3.5-35b-a3b"           → "mlx-community-qwen3.5-35b-a3b"
+      "lmstudio-community/qwen3.5-35b-a3b-gguf" → "lmstudio-community-qwen3.5-35b-a3b-gguf"
     """
     slug = model_name
     # Ollama uses colon as separator (qwen3.5:35b-a3b)

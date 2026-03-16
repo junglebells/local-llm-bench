@@ -13,7 +13,7 @@ WHAT THIS DOES:
   context grows. See docs/paper.md for the full analysis.
 
 HOW IT WORKS:
-  1. Loads a scenario JSON file (e.g. scenarios/agent.json) that defines
+  1. Loads a scenario JSON file (e.g. scenarios/ops-agent.json) that defines
      a system prompt and a sequence of conversation turns with tool calls.
   2. For each turn, sends the accumulated message history to the model
      and streams the response, measuring TTFT and generation time.
@@ -61,7 +61,7 @@ import urllib.error
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from lib.backends import get_backend, get_model_info, DEFAULT_URLS
-from lib.output import save_results, make_result_path, make_chip_slug, print_turn_header, print_turn_row, print_summary
+from lib.output import save_results, make_result_path, make_model_slug, make_chip_slug, print_turn_header, print_turn_row, print_summary
 
 
 # ── Thinking mode management for Qwen3.5 ─────────────────────────────
@@ -721,8 +721,7 @@ def main():
             print("  Restarting Ollama...", end=" ", flush=True)
             subprocess.run(["brew", "services", "restart", "ollama"],
                            capture_output=True, check=True)
-            import time as _time
-            _time.sleep(3)
+            time.sleep(3)
             print("done.")
 
     def print_config():
@@ -825,7 +824,7 @@ def main():
             # ── Contribute prompt ─────────────────────────────────────────
             chip_slug = make_chip_slug()
             backend_key = args.backend_label or args.backend
-            model_slug = make_result_path(script_dir, args.model, "", backend_key).split("/results/")[1].split("/")[0]
+            model_slug = make_model_slug(args.model)
             branch = f"results/{chip_slug}"
 
             # Detect if this is a direct clone (no push access) or a fork
