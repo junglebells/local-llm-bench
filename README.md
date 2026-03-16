@@ -144,6 +144,10 @@ In an 8-turn agent conversation, the model with 53 tok/s generation speed loses 
 - A running inference backend: [Ollama](https://ollama.com/), [LM Studio](https://lmstudio.ai/), raw [llama-server](https://github.com/ggml-org/llama.cpp), [MiniMax](https://platform.minimax.io/) (cloud API), or any OpenAI-compatible endpoint
 - A model loaded in that backend (or API key for authenticated endpoints)
 
+> **Before you run:** Make sure your context window is set to at least **16K tokens**. The benchmark sends up to ~9K tokens of context (prefill-test scenario). Too-small context produces skewed or empty results. If you're running Qwen3.5, add `--no-think` to disable thinking mode (it distorts results).
+>
+> **[Setup Guide -->](docs/setup-guide.md)** — Step-by-step instructions for each backend: how to check and set context size, disable Qwen3.5 thinking mode, and verify everything works.
+
 ### Run a Benchmark
 
 ```bash
@@ -427,8 +431,7 @@ local-llm-bench/
 │           └── <chip>_<backend>[_<config>].json
 └── docs/
     ├── paper.md          # Full MLX vs GGUF analysis
-    ├── part2-design.md   # Part 2 design (caching hypotheses)
-    └── part2-findings.md # Part 2 results
+    └── setup-guide.md    # Backend setup: context size, thinking mode, step-by-step
 ```
 
 ## License

@@ -280,6 +280,90 @@ def check_backend(backend, base_url, model):
             pass  # Can't parse response, let the benchmark try anyway
 
 
+def estimate_max_context(scenario):
+    """
+    Estimate the maximum context tokens a scenario will need.
+
+    For conversation mode, we sum all messages (context accumulates).
+    For single-shot mode, we find the largest individual turn.
+    Returns (max_tokens_est, max_tokens_output) tuple.
+    """
+    system_chars = len(scenario["system_prompt"])
+    max_tokens = scenario.get("max_tokens", 500)
+    mode = scenario.get("mode", "conversation")
+
+    if mode == "single-shot":
+        # Each turn is independent — find the largest one
+        max_turn_chars = 0
+        for turn in scenario["turns"]:
+            turn_chars = len(turn["user"])
+            if turn.get("tool_result"):
+                turn_chars += len(turn["tool_result"]) + 50  # tool overhead
+            max_turn_chars = max(max_turn_chars, turn_chars)
+        return (system_chars + max_turn_chars) // 4, max_tokens
+    else:
+        # Conversation mode — all messages accumulate
+        total_chars = system_chars
+        for turn in scenario["turns"]:
+            total_chars += len(turn["user"])
+            if turn.get("tool_result"):
+                total_chars += len(turn["tool_result"]) + 50
+            total_chars += max_tokens * 4  # estimate assistant reply length
+        return total_chars // 4, max_tokens
+
+
+def check_context_size(stream_fn, base_url, model, backend, needed_tokens):
+    """
+    Verify the backend's context window is large enough for the benchmark.
+
+    Sends a test request padded to the required context size and checks if
+    the model can produce output. Fails fast with clear instructions if not.
+    """
+    # Pad a system prompt to approximate the needed context size
+    # Each "word " is ~1.25 tokens, so we need roughly needed_tokens * 4 chars
+    padding_chars = max(0, needed_tokens * 4 - 100)
+    padding = "test " * (padding_chars // 5)
+    messages = [
+        {"role": "system", "content": padding},
+        {"role": "user", "content": "Reply with the single word OK."},
+    ]
+
+    print(f"  Checking context window ({needed_tokens:,} tokens needed)...", end="", flush=True)
+    try:
+        metrics = stream_fn(base_url, model, messages, max_tokens=5, temperature=0)
+        if metrics["output_tokens"] == 0:
+            _print_context_error(needed_tokens, backend)
+        print(" ok.\n")
+    except Exception as e:
+        err = str(e).lower()
+        if any(k in err for k in ["context", "too long", "exceed", "length", "413", "400"]):
+            _print_context_error(needed_tokens, backend)
+        # Other errors (network, auth) — let the benchmark handle them
+        print(f" skipped ({e}).\n")
+
+
+def _print_context_error(needed_tokens, backend):
+    """Print a clear error message about insufficient context window."""
+    print(f"\n\n{'='*70}")
+    print(f"\n  Error: Context window is too small for the benchmark.")
+    print(f"  The scenarios need at least ~{needed_tokens:,} tokens of context.")
+    print(f"  Recommendation: set your context window to at least 16,384 tokens.\n")
+
+    hints = {
+        "ollama": "  Ollama: create a Modelfile with PARAMETER num_ctx 16384",
+        "lmstudio": "  LM Studio: change Context Length in the model settings UI",
+        "openai": "  oMLX: admin panel -> Settings -> Generation Defaults -> Max Context Window\n"
+                  "  Other: check your server's context/max_seq_len setting",
+        "llama-server": "  llama-server: restart with -c 16384",
+    }
+    print(hints.get(backend, "  Check your backend's context window setting."))
+    print(f"\n  After changing the setting, reload the model in your backend")
+    print(f"  for the new context size to take effect.")
+    print(f"\n  Full guide: docs/setup-guide.md")
+    print(f"\n{'='*70}\n")
+    sys.exit(1)
+
+
 def warm_up(stream_fn, base_url, model, backend):
     """
     Send a short throwaway request to ensure the model is loaded into memory.
@@ -458,16 +542,19 @@ def run_scenario(scenario, stream_fn, base_url, model, runs=1, backend="ollama")
                 if metrics.get("prompt_eval_duration_ms"):
                     result["prompt_eval_duration_ms"] = round(metrics["prompt_eval_duration_ms"], 1)
 
+                # ── Check for empty output (likely context too small) ──
+                if metrics["output_tokens"] == 0:
+                    print(f"\n  Turn {i+1} produced 0 output tokens.")
+                    _print_context_error(ctx_tokens_est + max_tokens, backend)
+
                 print_turn_row(result, backend)
                 results.append(result)
 
             except Exception as e:
-                # Record errors but keep going — one failed turn shouldn't
-                # abort the whole benchmark
-                print(f"{i+1:>4}  ERROR: {e}")
-                messages.append({"role": "assistant", "content": "Error processing request."})
-                prev_ctx_chars = sum(len(m["content"]) for m in messages)
-                results.append({"turn": i + 1, "run": run, "error": str(e)})
+                print(f"\n  Benchmark aborted at turn {i+1} (~{ctx_tokens_est:,} tokens context).")
+                print(f"  Error: {e}")
+                print(f"\n  If this is a context size issue, see docs/setup-guide.md")
+                sys.exit(1)
 
         # Print run summary
         print()
@@ -535,7 +622,7 @@ def run_single(args, scenario_path, script_dir, stream_fn, base_url, warm_up_don
     md_path = outpath.rsplit(".", 1)[0] + ".md"
     print(f"\n  JSON: {outpath}")
     print(f"  Table: {md_path}")
-    return warm_up_time
+    return warm_up_time, ctx_checked
 
 
 def main():
@@ -678,6 +765,12 @@ def main():
         if args.scenario:
             # Run a single scenario
             scenario_path = args.scenario if os.path.isabs(args.scenario) else os.path.join(script_dir, args.scenario)
+
+            # Pre-flight: check context window is large enough
+            scenario_data = load_scenario(scenario_path)
+            max_ctx, max_out = estimate_max_context(scenario_data)
+            check_context_size(stream_fn, base_url, args.model, args.backend, max_ctx + max_out)
+
             run_single(args, scenario_path, script_dir, stream_fn, base_url, warm_up_done=False)
         else:
             # Default: run all scenarios
@@ -685,6 +778,15 @@ def main():
             if not scenarios:
                 print("Error: No scenario files found in scenarios/", file=sys.stderr)
                 sys.exit(1)
+
+            # Pre-flight: check context window against the most demanding scenario
+            max_needed = 0
+            for sp in scenarios:
+                s = load_scenario(sp)
+                ctx, out = estimate_max_context(s)
+                max_needed = max(max_needed, ctx + out)
+            check_context_size(stream_fn, base_url, args.model, args.backend, max_needed)
+
             total = len(scenarios)
             print(f"\n  Running all {total} scenarios...\n")
             warm_up_done = False
