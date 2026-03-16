@@ -1,10 +1,12 @@
-# local-llm-bench
+# local-llm-bench - Benchmark your local LLM use case
 
 Scenario-based LLM benchmark for Apple Silicon. Measures what you actually wait for, not just the generation tok/s counter.
+It runs **real scenarios** (agent workflows, document classification, creative writing) and compares backends, engines, and hardware on the same workloads.
+You can easily add your own single-shot or conversational scenarios to test your actual use case with different backends, models, etc.
 
 Your LLM UI says *"57 tok/s"*. But every response starts with a **prefill phase** where the model processes your entire conversation history before the first token appears. As context grows, prefill dominates. A model reporting 57 tok/s can deliver as low as 3 tok/s in practice.
 
-This benchmark measures **effective throughput**: output tokens divided by total wall-clock time. The speed you experience, not the speed on screen. It runs real conversation scenarios (agent workflows, document classification, creative writing) and compares backends, engines, and hardware on the same workloads.
+This benchmark measures **effective throughput**: output tokens divided by total wall-clock time. The speed you experience, not the speed on screen.
 
 ```
 effective tok/s = output_tokens / (prefill_time + generation_time)
